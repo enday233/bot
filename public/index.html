@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧠 记忆聊天机器人</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .container {
+      width: 100%;
+      max-width: 800px;
+      height: 85vh;
+      max-height: 800px;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .header {
+      padding: 20px 25px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .header h1 { 
+      font-size: 24px; 
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .stats { 
+      font-size: 13px; 
+      opacity: 0.9;
+      font-family: "Courier New", monospace;
+    }
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 25px;
+      background: #f7f8fa;
+    }
+    #chat::-webkit-scrollbar { width: 6px; }
+    #chat::-webkit-scrollbar-thumb { 
+      background: #ccc; 
+      border-radius: 3px; 
+    }
+    .message {
+      margin: 15px 0;
+      padding: 14px 18px;
+      border-radius: 18px;
+      max-width: 75%;
+      word-wrap: break-word;
+      line-height: 1.6;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .user {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      margin-left: auto;
+      border-bottom-right-radius: 4px;
+    }
+    .bot {
+      background: white;
+      border: 1px solid #e0e0e0;
+      color: #333;
+      border-bottom-left-radius: 4px;
+    }
+    .error {
+      background: #ffebee;
+      color: #c62828;
+      border: 1px solid #ef9a9a;
+      max-width: 90%;
+      font-size: 13px;
+    }
+    .input-area {
+      display: flex;
+      gap: 12px;
+      padding: 20px 25px;
+      border-top: 1px solid #e0e0e0;
+      background: white;
+    }
+    #input {
+      flex: 1;
+      padding: 14px 18px;
+      border: 2px solid #e0e0e0;
+      border-radius: 25px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+      font-family: inherit;
+    }
+    #input:focus { border-color: #667eea; }
+    #input:disabled {
+      background: #f5f5f5;
+      cursor: not-allowed;
+    }
+    button {
+      padding: 14px 28px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover:not(:disabled) { 
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    button:disabled { 
+      background: linear-gradient(135deg, #ccc 0%, #999 100%);
+      cursor: not-allowed;
+      transform: none;
+    }
+    .typing {
+      display: inline-block;
+      padding: 14px 18px;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 18px;
+      border-bottom-left-radius: 4px;
+    }
+    .typing span {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #667eea;
+      margin: 0 2px;
+      animation: typing 1.4s infinite;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.7; }
+      30% { transform: translateY(-10px); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🧠 记忆聊天机器人</h1>
+      <div class="stats" id="stats">系统加载中...</div>
+    </div>
+    <div id="chat"></div>
+    <div class="input-area">
+      <input type="text" id="input" placeholder="输入消息..." autocomplete="off">
+      <button onclick="sendMessage()" id="sendBtn">发送</button>
+    </div>
+  </div>
+
+  <script>
+    const chatDiv = document.getElementById('chat')
+    const inputBox = document.getElementById('input')
+    const statsDiv = document.getElementById('stats')
+    const sendBtn = document.getElementById('sendBtn')
+    const sessionId = 'user-' + Date.now()
+
+    addMessage('bot', '你好！我是一个有记忆的聊天机器人。试着和我聊天，我会记住我们的对话内容。')
+    statsDiv.textContent = '会话已建立 | 等待输入...'
+    inputBox.focus()
+
+    async function sendMessage() {
+      const message = inputBox.value.trim()
+      if (!message) return
+
+      addMessage('user', message)
+      inputBox.value = ''
+      setInputState(false)
+      
+      const typingDiv = showTyping()
+
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, sessionId })
+        })
+
+        typingDiv.remove()
+        const data = await response.json()
+        
+        if (data.error) {
+          addMessage('error', '错误: ' + data.error)
+        } else {
+          addMessage('bot', data.reply)
+          
+          if (data.debug) {
+            statsDiv.textContent = `消息: ${data.debug.totalMessages} | 长期记忆: ${data.debug.contextLayers.longTermMemory} | 短期轮数: ${data.debug.contextLayers.shortTermRounds} | 模型: ${data.debug.model}`
+          }
+        }
+      } catch (error) {
+        typingDiv.remove()
+        addMessage('error', '网络错误: ' + error.message)
+      } finally {
+        setInputState(true)
+      }
+    }
+
+    function addMessage(role, content) {
+      const div = document.createElement('div')
+      div.className = 'message ' + role
+      div.textContent = content
+      chatDiv.appendChild(div)
+      chatDiv.scrollTop = chatDiv.scrollHeight
+    }
+
+    function showTyping() {
+      const div = document.createElement('div')
+      div.className = 'typing'
+      div.innerHTML = '<span></span><span></span><span></span>'
+      chatDiv.appendChild(div)
+      chatDiv.scrollTop = chatDiv.scrollHeight
+      return div
+    }
+
+    function setInputState(enabled) {
+      inputBox.disabled = !enabled
+      sendBtn.disabled = !enabled
+      if (enabled) {
+        inputBox.focus()
+        sendBtn.textContent = '发送'
+      } else {
+        sendBtn.textContent = '发送中...'
+      }
+    }
+
+    inputBox.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !inputBox.disabled) {
+        sendMessage()
+      }
+    })
+  </script>
+</body>
+</html>
